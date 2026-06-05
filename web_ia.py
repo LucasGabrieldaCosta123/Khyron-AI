@@ -44,8 +44,12 @@ def gerar_titulo():
         res = client.chat(model=MODELO_ATIVO, messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
         titulo = res['message']['content'].strip()
         return jsonify({"titulo": titulo})
-    except:
-        return jsonify({"titulo": texto[:20] + "..."})
+    except ollama.ResponseError as e:
+        print(f"❌ Erro do Ollama ao gerar título: {e.error} (Status: {e.status_code})")
+        return jsonify({"titulo": "Erro: Modelo não encontrado", "error": str(e)}), e.status_code
+    except Exception as e:
+        print(f"❌ Erro inesperado ao gerar título: {str(e)}")
+        return jsonify({"titulo": "Erro de Conexão", "error": str(e)}), 500
 
 @app.route('/perguntar', methods=['POST'])
 def perguntar():
@@ -63,8 +67,12 @@ def perguntar():
 
             for chunk in client.chat(model=MODELO_ATIVO, messages=mensagens_contexto, stream=True):
                 yield chunk['message']['content']
+        except ollama.ResponseError as e:
+            yield f"❌ Erro do Servidor Ollama: {e.error} (Status: {e.status_code}). "
+            if e.status_code == 404:
+                yield f"O modelo '{MODELO_ATIVO}' não foi encontrado. Verifique se o nome está correto ou se você fez 'ollama pull'."
         except Exception as e:
-            yield f"Erro ao conectar com Ollama: {str(e)}"
+            yield f"❌ Erro de Conexão/Rede: {type(e).__name__} - {str(e)}"
     
     return Response(stream_with_context(generate()), mimetype='text/plain')
 

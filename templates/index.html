@@ -741,6 +741,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     signal: currentAbortController.signal
                 });
 
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Servidor respondeu com erro ${response.status}: ${errorText}`);
+                }
+
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
 
