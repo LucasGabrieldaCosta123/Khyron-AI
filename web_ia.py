@@ -7,7 +7,8 @@ import ollama # type: ignore
 app = Flask(__name__)
 
 # Configuração do Modelo (lucassg_12 está correto!)
-MODELO_IA = 'lucassg_12/khyron'
+# Agora ele tenta pegar o nome do modelo do Vercel, se não existir, usa o seu padrão
+MODELO_IA = os.getenv("OLLAMA_MODEL", "lucassg_12/khyron")
 
 # Configuração para produção (Vercel) e Local
 # No Vercel, configure OLLAMA_HOST como https://api.ollama.com
