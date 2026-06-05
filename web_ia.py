@@ -11,7 +11,7 @@ MODELO_IA = 'lucassg_12/khyron'
 
 # Configuração para produção (Vercel) e Local
 # OLLAMA_HOST deve ser configurado nas Environment Variables da Vercel
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "https://api.ollama.com")
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY")
 
 headers = {}
@@ -35,7 +35,12 @@ def gerar_titulo():
     texto = request.json.get('texto', '')
     prompt = f"Resuma a frase em um título de 2 ou 3 palavras. NÃO use aspas, pontos ou emojis. Responda APENAS as palavras do título: '{texto}'"
     try:
-        res = client.chat(model=MODELO_IA, messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
+        # Tenta usar o nome completo, se falhar (local), tenta apenas 'khyron'
+        try:
+            res = client.chat(model=MODELO_IA, messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
+        except:
+            res = client.chat(model='khyron', messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
+            
         titulo = res['message']['content'].strip()
         return jsonify({"titulo": titulo})
     except:
@@ -55,7 +60,12 @@ def perguntar():
             # Adiciona a pergunta atual
             mensagens_contexto.append({'role': 'user', 'content': pergunta})
 
-            for chunk in client.chat(model=MODELO_IA, messages=mensagens_contexto, stream=True):
+            # Tenta o modelo completo (nuvem), se não achar, usa o local
+            modelo_final = MODELO_IA
+            if OLLAMA_HOST == "http://localhost:11434":
+                modelo_final = 'khyron'
+
+            for chunk in client.chat(model=modelo_final, messages=mensagens_contexto, stream=True):
                 yield chunk['message']['content']
         except Exception as e:
             yield f"Erro ao conectar com Ollama: {str(e)}"
