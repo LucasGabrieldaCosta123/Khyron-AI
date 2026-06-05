@@ -6,8 +6,8 @@
     }
   ],
   "functions": {
-    "api/index.py": {
-      "maxDuration": 30
+    "api/*.py": {
+      "maxDuration": 10
     }
   }
 }
