@@ -1,13 +1,14 @@
 {
+  "builds": [
+    {
+      "src": "web_ia.py",
+      "use": "@vercel/python"
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "api/index.py"
+      "destination": "web_ia.py"
     }
-  ],
-  "functions": {
-    "api/index.py": {
-      "maxDuration": 10
-    }
-  }
+  ]
 }

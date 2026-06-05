@@ -6,6 +6,17 @@ import ollama # type: ignore
 
 app = Flask(__name__)
 
+# Configuração para produção (Vercel) e Local
+# OLLAMA_HOST deve ser configurado nas Environment Variables da Vercel
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "https://api.ollama.com")
+OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY")
+
+headers = {}
+if OLLAMA_API_KEY:
+    headers["Authorization"] = f"Bearer {OLLAMA_API_KEY}"
+
+client = ollama.Client(host=OLLAMA_HOST, headers=headers)
+
 # --- Rotas do Site ---
 @app.route('/')
 def index():
@@ -21,9 +32,7 @@ def gerar_titulo():
     texto = request.json.get('texto', '')
     prompt = f"Resuma a frase em um título de 2 ou 3 palavras. NÃO use aspas, pontos ou emojis. Responda APENAS as palavras do título: '{texto}'"
     try:
-        # Alterado de 'gemma4:31b-cloud' para 'khyron'. 
-        # Mesmo para títulos, usar o seu modelo customizado é mais consistente.
-        res = ollama.chat(model='lucassg_12/khyron', messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
+        res = client.chat(model='lucassg_12/khyron', messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
         titulo = res['message']['content'].strip()
         return jsonify({"titulo": titulo})
     except:
@@ -43,13 +52,15 @@ def perguntar():
             # Adiciona a pergunta atual
             mensagens_contexto.append({'role': 'user', 'content': pergunta})
 
-            for chunk in ollama.chat(model='lucassg_12/khyron', messages=mensagens_contexto, stream=True):
+            for chunk in client.chat(model='lucassg_12/khyron', messages=mensagens_contexto, stream=True):
                 yield chunk['message']['content']
         except Exception as e:
             yield f"Erro ao conectar com Ollama: {str(e)}"
     
     return Response(stream_with_context(generate()), mimetype='text/plain')
 
+# Necessário para Vercel encontrar o app na raiz
+app_handler = app
 
 if __name__ == '__main__':
     try:

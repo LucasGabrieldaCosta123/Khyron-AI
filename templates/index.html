@@ -435,23 +435,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (loggedInUser) {
         // Atualizar a UI para mostrar que o usuário está logado
         console.log(`Usuário logado: ${loggedInUser}`);
-        // Esconder formulário de login, mostrar botão de logout, etc.
-        const authSection = document.getElementById('auth-section'); // Assumindo que você tem uma seção de auth
-        if (authSection) authSection.style.display = 'none';
-
-        const welcomeMessage = document.getElementById('welcome-message'); // Assumindo um elemento para mensagem
-        if (welcomeMessage) welcomeMessage.textContent = `Bem-vindo, ${loggedInUser}!`;
-
-        const logoutButton = document.getElementById('logout-button'); // Assumindo um botão de logout
-        if (logoutButton) logoutButton.style.display = 'block';
-
+        
+        document.getElementById('login-overlay').classList.add('hidden');
+        atualizarUIUsuario(loggedInUser);
+        carregarHistorico();
     } else {
         // Mostrar formulário de login
         console.log('Nenhum usuário logado.');
-        const authSection = document.getElementById('auth-section');
-        if (authSection) authSection.style.display = 'block';
-        const logoutButton = document.getElementById('logout-button');
-        if (logoutButton) logoutButton.style.display = 'none';
+        document.getElementById('login-overlay').classList.remove('hidden');
     }
 
     // Anexar evento ao formulário de autenticação (se você o criou)
