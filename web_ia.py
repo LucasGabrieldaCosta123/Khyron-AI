@@ -18,12 +18,14 @@ headers = {}
 if OLLAMA_API_KEY:
     headers["Authorization"] = f"Bearer {OLLAMA_API_KEY}"
 
-client = ollama.Client(host=OLLAMA_HOST, headers=headers)
+# Adicionado um timeout de 60 segundos. Modelos na nuvem (como o Gemma 31B) 
+# podem levar algum tempo para processar o contexto inicial.
+client = ollama.Client(host=OLLAMA_HOST, headers=headers, timeout=60.0)
 
 # --- LÓGICA DE DETECÇÃO DE MODELO ---
 # Se o host for local ou um túnel (ngrok), usamos o nome curto. 
 # Caso contrário (nuvem real), usamos o nome completo.
-is_local = "localhost" in OLLAMA_HOST or "ngrok" in OLLAMA_HOST
+is_local = any(x in OLLAMA_HOST for x in ["localhost", "127.0.0.1", "ngrok"])
 MODELO_ATIVO = 'khyron' if is_local else MODELO_IA
 
 # --- Rotas do Site ---
