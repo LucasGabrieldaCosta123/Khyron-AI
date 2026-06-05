@@ -23,7 +23,7 @@ def gerar_titulo():
     try:
         # Alterado de 'gemma4:31b-cloud' para 'khyron'. 
         # Mesmo para títulos, usar o seu modelo customizado é mais consistente.
-        res = ollama.chat(model='khyron', messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
+        res = ollama.chat(model='lucassg_12/khyron', messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
         titulo = res['message']['content'].strip()
         return jsonify({"titulo": titulo})
     except:
@@ -43,7 +43,7 @@ def perguntar():
             # Adiciona a pergunta atual
             mensagens_contexto.append({'role': 'user', 'content': pergunta})
 
-            for chunk in ollama.chat(model='khyron', messages=mensagens_contexto, stream=True):
+            for chunk in ollama.chat(model='lucassg_12/khyron', messages=mensagens_contexto, stream=True):
                 yield chunk['message']['content']
         except Exception as e:
             yield f"Erro ao conectar com Ollama: {str(e)}"

@@ -37,7 +37,7 @@ def perguntar():
             mensagens_contexto.append({'role': 'user', 'content': pergunta})
             # Removido o loop duplicado e configurado para usar o modelo 'khyron'
             # Isso garante que as instruções do seu Modelfile sejam respeitadas
-            for chunk in client.chat(model='khyron', messages=mensagens_contexto, stream=True):
+            for chunk in client.chat(model='lucassg_12/khyron', messages=mensagens_contexto, stream=True):
                 yield chunk['message']['content']
         except Exception as e:
             yield f"Erro: {str(e)}"
