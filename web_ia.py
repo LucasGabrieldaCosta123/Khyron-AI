@@ -7,12 +7,11 @@ import ollama # type: ignore
 app = Flask(__name__)
 
 # Configuração do Modelo (lucassg_12 está correto!)
-# Agora ele tenta pegar o nome do modelo do Vercel, se não existir, usa o seu padrão
-MODELO_IA = os.getenv("OLLAMA_MODEL", "lucassg_12/khyron")
+MODELO_IA_NUVEM = os.getenv("OLLAMA_MODEL", "lucassg_12/khyron")
 
 # Configuração para produção (Vercel) e Local
 # No Vercel, configure OLLAMA_HOST como https://api.ollama.com
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434").rstrip('/')
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434").strip().rstrip('/')
 OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY")
 
 headers = {}
@@ -27,8 +26,10 @@ client = ollama.Client(host=OLLAMA_HOST, headers=headers, timeout=60.0)
 # --- LÓGICA DE DETECÇÃO DE MODELO ---
 # Removido 'ngrok' pois você não o utiliza.
 # Se for localhost, usa o nome curto; se for na nuvem (ollama.com), usa o nome completo.
-is_local = any(x in OLLAMA_HOST for x in ["localhost", "127.0.0.1"])
-MODELO_ATIVO = 'khyron' if is_local else MODELO_IA
+def obter_modelo_ativo():
+    is_local = any(x in OLLAMA_HOST for x in ["localhost", "127.0.0.1"])
+    # Prioriza a variável de ambiente se ela for definida manualmente
+    return "khyron" if is_local else MODELO_IA_NUVEM
 
 # --- Rotas do Site ---
 @app.route('/')
@@ -45,7 +46,8 @@ def gerar_titulo():
     texto = request.json.get('texto', '')
     prompt = f"Resuma a frase em um título de 2 ou 3 palavras. NÃO use aspas, pontos ou emojis. Responda APENAS as palavras do título: '{texto}'"
     try:
-        res = client.chat(model=MODELO_ATIVO, messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
+        modelo = obter_modelo_ativo()
+        res = client.chat(model=modelo, messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
         titulo = res['message']['content'].strip()
         return jsonify({"titulo": titulo})
     except ollama.ResponseError as e:
@@ -63,25 +65,21 @@ def perguntar():
 
     def generate():
         try:
+            modelo = obter_modelo_ativo()
             # Constrói o contexto com o histórico enviado pelo navegador
             mensagens_contexto = [{'role': m['role'], 'content': m['content']} for m in historico]
             
             # Adiciona a pergunta atual
             mensagens_contexto.append({'role': 'user', 'content': pergunta})
 
-            for chunk in client.chat(model=MODELO_ATIVO, messages=mensagens_contexto, stream=True):
+            for chunk in client.chat(model=modelo, messages=mensagens_contexto, stream=True):
                 yield chunk['message']['content']
         except ollama.ResponseError as e:
-            yield f"❌ Erro do Servidor Ollama: {e.error} (Status: {e.status_code}). "
-            if e.status_code == 404:
-                yield f"O modelo '{MODELO_ATIVO}' não foi encontrado. Verifique se o nome está correto ou se você fez 'ollama pull'."
+            yield f"❌ Erro do Servidor Ollama (Status {e.status_code}): {e.error}. "
         except Exception as e:
             yield f"❌ Erro de Conexão/Rede: {type(e).__name__} - {str(e)}"
     
-    return Response(stream_with_context(generate()), mimetype='text/plain')
-
-# Necessário para Vercel encontrar o app na raiz
-app = app
+    return Response(stream_with_context(generate()), mimetype='content-type: text/event-stream')
 
 if __name__ == '__main__':
     try:
