@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Khyron AI</title>
+  <!-- Bibliotecas para Markdown e Código -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <!-- KaTeX para fórmulas matemáticas -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <!-- Google Material Symbols -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <style>
+    :root {
+      --bg: #212121;
+      --sidebar-bg: #0f0f0f;
+      --surface: #303030;
+      --surface-hover: #2a2a2a;
+      --surface-alt: #1d1d1d;
+      --text: #ececec;
+      --muted: #a3a3a3;
+      --border: rgba(255, 255, 255, 0.08);
+      --green: #10a37f;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Inter, system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; height: 100%; }
+    body { display: flex; background: var(--bg); color: var(--text); overflow: hidden; }
+
+    /* Sidebar */
+    .sidebar { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; padding: 12px 10px; background: var(--sidebar-bg); border-right: 1px solid rgba(255, 255, 255, 0.04); overflow-y: auto; gap: 4px; }
+    .brand { display: flex; align-items: center; padding: 6px 8px 14px; }
+    .brand-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 50%; color: var(--green); }
+    .brand-icon .material-symbols-outlined { font-size: 18px; }
+    .sidebar-btn { width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #2b2b2b; text-align: left; margin-bottom: 4px; border-radius: 12px; color: white; border: none; cursor: pointer; transition: 0.2s; font-size: 14px; }
+    .sidebar-btn:hover { background: var(--surface-hover); }
+    .sidebar-btn .material-symbols-outlined { font-size: 20px; }
+    .nav-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; font-size: 14px; color: #dddddd; cursor: pointer; border-radius: 12px; transition: 0.2s; }
+    .nav-item:hover { background: var(--surface-hover); }
+    .nav-item .material-symbols-outlined { font-size: 20px; }
+    .delete-chat-btn { background: transparent; border: none; color: var(--muted); opacity: 0; cursor: pointer; padding: 4px; border-radius: 6px; transition: 0.2s; }
+    .nav-item:hover .delete-chat-btn { opacity: 0.6; }
+    .delete-chat-btn:hover { opacity: 1 !important; background: rgba(255, 0, 0, 0.2); color: #ff4444; }
+    .section-title { margin: 18px 10px 6px; font-size: 11px; font-weight: 600; color: #9a9a9a; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    select#modo-ia { width: 100%; background: var(--surface-alt); color: white; border: 1px solid var(--border); padding: 10px; border-radius: 8px; margin-top: 5px; outline: none; cursor: pointer; font-size: 13px; }
+    
+    .profile { margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+    .profile-card { display: flex; align-items: center; gap: 10px; padding: 10px; }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #d95f3f; font-size: 12px; font-weight: 700; color: white; }
+
+    /* Main Content */
+    .main { flex: 1; position: relative; display: flex; flex-direction: column; min-width: 0; height: 100%; }
+    .top-header { position: absolute; top: 0; width: 100%; height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: rgba(33, 33, 33, 0.8); backdrop-filter: blur(10px); z-index: 10; }
+    .model-selector { font-weight: 600; font-size: 18px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+    
+    /* Botão de Menu Mobile */
+    .menu-toggle { display: none; background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 5px; margin-right: 10px; }
+    /* Overlay para fechar ao clicar fora */
+    .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 95; }
+
+    /* Chat Container */
+    #chat-container { flex: 1; overflow-y: auto; padding: 80px 20px 20px 20px; display: flex; flex-direction: column; gap: 24px; max-width: 800px; width: 100%; margin: 0 auto; -webkit-overflow-scrolling: touch; }
+    .message { max-width: 85%; line-height: 1.6; word-wrap: break-word; font-size: 16px; }
+    .user { align-self: flex-end; background: var(--surface-alt); padding: 10px 20px; border-radius: 20px; border: 1px solid var(--border); }
+    .bot { align-self: flex-start; width: 100%; border-bottom: none; }
+    .bot-content { display: flex; gap: 15px; }
+    .bot-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--green); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+    .bot-text { width: 100%; line-height: 1.7; }
+    .bot-text p { margin-bottom: 1rem; }
+    .bot-text ul, .bot-text ol { margin-left: 1.5rem; margin-bottom: 1rem; }
+
+    /* Estilização de Blocos de Código e Tabelas */
+    pre { 
+        background: #1e1e1e !important; 
+        border-radius: 10px; 
+        padding: 1.2rem; 
+        margin: 1.2rem 0; 
+        overflow-x: auto; 
+        position: relative; 
+        border: 1px solid #333;
+        white-space: pre-wrap;       /* Quebra linha no código */
+        word-wrap: break-word;
+    }
+    code { font-family: 'Monaco', 'Consolas', 'Fira Code', monospace; font-size: 0.95rem; }
+    .copy-code-btn { position: absolute; top: 8px; right: 8px; background: var(--surface); color: var(--muted); border: 1px solid var(--border); padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; transition: 0.2s; }
+    .copy-code-btn:hover { background: var(--surface-hover); color: white; }
+
+    table { border-collapse: collapse; margin: 15px 0; width: 100%; border: 1px solid var(--border); font-size: 14px; border-radius: 8px; overflow: hidden; }
+    th, td { border: 1px solid var(--border); padding: 10px; text-align: left; }
+    th { background-color: var(--surface); font-weight: 600; color: var(--green); }
+    tr:nth-child(even) { background-color: rgba(255, 255, 255, 0.02); }
+    tr:hover { background-color: var(--surface-hover); }
+
+/* Estilo para o Bloco de Raciocínio (Think) */
+.thought-container {
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 3px solid var(--muted);
+    margin: 10px 0;
+    border-radius: 6px;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.thought-container summary {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none; /* Remove a setinha padrão */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.thought-container summary .material-symbols-outlined { font-size: 18px; }
+
+.thought-container summary::before {
+    content: "▼";
+    font-size: 10px;
+    transition: transform 0.2s;
+}
+
+.thought-container[open] summary::before {
+    transform: rotate(-180deg);
+}
+
+.thought-content {
+    padding: 0 12px 12px 12px;
+    line-height: 1.5;
+    /* Limita a exibição inicial se você quiser, 
+       mas o <details> já esconde tudo por padrão */
+}
+
+    /* Animação "Pensando" */
+    .typing-indicator { display: flex; align-items: center; gap: 4px; padding: 5px 0; color: var(--muted); font-size: 14px; font-style: italic; }
+    .typing-dot { width: 6px; height: 6px; background: var(--muted); border-radius: 50%; animation: typing 1.4s infinite; opacity: 0.4; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    /* Composer (Input area) */
+    .composer { width: 100%; max-width: 760px; margin: 0 auto; padding: 0 20px 24px 20px; }
+    .input-box { display: flex; align-items: flex-end; gap: 12px; min-height: 56px; padding: 10px 14px; background: var(--surface); border-radius: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .plus { flex-shrink: 0; font-size: 24px; color: #cfcfcf; cursor: pointer; padding-left: 5px; margin-bottom: 8px; }
+    .prompt-input { flex: 1; border: none; outline: none; background: transparent; color: white; font-size: 16px; resize: none; max-height: 200px; padding: 8px 0; line-height: 1.5; overflow-y: hidden; }
+    .mic { flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: white; color: black; border: none; cursor: pointer; transition: 0.2s; font-size: 16px; }
+    .mic.active { background: var(--green); color: white; }
+    .action-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 5px; margin-top: 8px; transition: 0.2s; }
+    .action-btn:hover { color: white; }
+    
+    .footer-note { font-size: 12px; color: var(--muted); text-align: center; margin-top: 10px; }
+    
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #555; border-top: 2px solid var(--green); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* Modal de Login/Registro */
+    #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+    .login-box { background: var(--surface); padding: 30px; border-radius: 15px; width: 100%; max-width: 350px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    .login-box h2 { text-align: center; margin-bottom: 10px; }
+    .login-box input { background: var(--surface-alt); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 8px; outline: none; }
+    .login-box button { background: var(--green); color: white; padding: 12px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; font-size: 16px; }
+    .login-box .toggle-auth { font-size: 13px; text-align: center; color: var(--muted); cursor: pointer; }
+    .login-box .toggle-auth b { color: var(--green); }
+    .hidden { display: none !important; }
+
+    @media (max-width: 900px) {
+      .menu-toggle { display: block; }
+      .sidebar { 
+        position: fixed; 
+        left: -260px; 
+        top: 0; 
+        bottom: 0; 
+        z-index: 100; 
+        transition: left 0.3s ease; 
+        box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+      }
+      .sidebar.active { left: 0; }
+      .message { max-width: 95%; }
+      .sidebar-active .sidebar-overlay { display: block; }
+    }
+  </style>
+</head>
+<body class="">
+    <!-- Modal de Autenticação -->
+    <div id="login-overlay">
+        <div class="login-box">
+            <h2 id="auth-title">Entrar no Khyron</h2>
+            <form id="auth-form">
+                <input type="text" id="auth-username" placeholder="Usuário" autocomplete="username">
+                <input type="password" id="auth-password" placeholder="Senha" autocomplete="current-password">
+                <button id="auth-submit-btn" onclick="handleAuth()">Entrar</button>
+            </form>
+            <p class="toggle-auth" onclick="toggleAuthMode()">
+                <span id="auth-switch-text">Não tem uma conta?</span> <b id="auth-switch-link">Registre-se</b>
+            </p>
+        </div>
+    </div>
+
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-icon"><span class="material-symbols-outlined">smart_toy</span></div>
+        </div>
+        <button class="sidebar-btn" onclick="iniciarNovoChat()">
+            <span class="material-symbols-outlined">add_comment</span> Novo chat
+        </button>
+        <button class="sidebar-btn" style="background: #442222; margin-top: 5px; color: #ffaaaa;" onclick="limparHistorico()">
+            <span class="material-symbols-outlined">delete_sweep</span> Apagar Tudo
+        </button>
+        
+        <div class="section-title">Versão do Modelo</div>
+        <select id="modo-ia">
+            <option value="ollama">Khyron v1 (Ollama)</option>
+        </select>
+        <div class="nav-item">
+            <span style="display:flex; align-items:center; gap:10px;"><span class="material-symbols-outlined">settings</span> Configurações</span>
+        </div>
+        <button class="sidebar-btn" onclick="logout()" style="background:transparent; border:1px solid var(--border); margin-top:10px;">
+            <span class="material-symbols-outlined">logout</span> Sair
+        </button>
+        
+        <div class="section-title">Conversas Recentes</div>
+        <div id="historico-lista"></div>
+
+        <div class="profile">
+            <div class="profile-card">
+                <div class="avatar" id="profile-avatar">?</div>
+                <div class="profile-name" id="profile-name">Carregando...</div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main">
+        <div class="top-header">
+            <div style="display: flex; align-items: center;">
+                <button class="menu-toggle" onclick="toggleSidebar()">
+                    <span class="material-symbols-outlined">menu</span>
+                </button>
+                <div class="model-selector">Khyron AI <span class="material-symbols-outlined">expand_more</span></div>
+            </div>
+            <div style="font-size: 14px; opacity: 0.8;">Ativo</div>
+        </div>
+
+        <div id="chat-container">
+            <!-- Mensagem de boas vindas inicial -->
+            <div class="message bot" id="welcome-msg">
+                <div class="bot-content">
+                    <div class="bot-avatar">K</div>
+                    <div class="bot-text">Olá! Eu sou o Khyron. Como posso te ajudar hoje?</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="composer">
+            <div class="input-box">
+                <div class="plus" onclick="alert('Funcionalidade em desenvolvimento...')">
+                    <span class="material-symbols-outlined">add</span>
+                </div>
+                <textarea id="user-input" class="prompt-input" placeholder="Pergunte ao Khyron..." rows="1" autocomplete="off"></textarea>
+                <button class="mic" id="record-btn" onclick="toggleGravacao()" style="background: transparent; color: var(--muted);">
+                    <span class="material-symbols-outlined">mic</span>
+                </button>
+                <button class="mic" id="send-btn" onclick="enviar()" style="background: white; color: black;">
+                    <span class="material-symbols-outlined">arrow_upward</span>
+                </button>
+            </div>
+            <div class="footer-note">O Khyron AI pode cometer erros. Verifique informações importantes.</div>
+        </div>
+    </div>
+
+    <script>
+        let authMode = 'login'; // Controla se estamos em modo login ou signup
+        // Funções de utilidade para evitar erros de referência
+        function fallbackCopyTextToClipboard(text, btn) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            textArea.style.top = "0";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                btn.innerText = 'Copiado!';
+                setTimeout(() => { btn.innerText = 'Copiar'; }, 2000);
+            } catch (err) {
+                console.error('Erro no fallback de cópia:', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function updateCodeBlocks(container) {
+            if (typeof hljs !== 'undefined') {
+                container.querySelectorAll('pre').forEach((pre) => {
+                    const code = pre.querySelector('code');
+                    if (!code) return;
+                    
+                    // Aplica o destaque de sintaxe
+                    hljs.highlightElement(code);
+
+                    // Adiciona o botão de copiar se ele ainda não existir no bloco
+                    if (!pre.querySelector('.copy-code-btn')) {
+                        const btn = document.createElement('button');
+                        btn.className = 'copy-code-btn';
+                        btn.type = 'button';
+                        btn.innerText = 'Copiar';
+                        
+                        btn.onclick = () => {
+                            const text = code.textContent;
+                            if (navigator.clipboard && navigator.clipboard.writeText) {
+                                navigator.clipboard.writeText(text).then(() => {
+                                    btn.innerText = 'Copiado!';
+                                    setTimeout(() => { btn.innerText = 'Copiar'; }, 2000);
+                                }).catch(() => fallbackCopyTextToClipboard(text, btn));
+                            } else {
+                                fallbackCopyTextToClipboard(text, btn);
+                            }
+                        };
+                        pre.appendChild(btn);
+                    }
+                });
+            }
+        }
+        function limparTimerDemora() {} // Placeholder para evitar erro
+
+        function isMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                   window.innerWidth <= 768;
+        }
+        document.getElementById('auth-form').addEventListener('submit', function(event) {
+        event.preventDefault(); // Impede o envio padrão do formulário
+        handleAuth(); // Chama sua função de autenticação
+    });
+        document.addEventListener('touchstart', function(e) {
+            if (e.touches.length > 1) e.preventDefault();
+        }, { passive: false });
+
+        // Função auxiliar para gerar IDs (compatível com HTTP e HTTPS)
+        function generateUUID() {
+            if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+                return crypto.randomUUID();
+            }
+            // Fallback manual para contextos não seguros (HTTP via IP)
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        // Exemplo de JavaScript no seu index.html ou arquivo JS
+
+// --- Funções Auxiliares para LocalStorage ---
+function saveUserToLocalStorage(username, password) {
+    // ATENÇÃO: Salvar senhas em localStorage é ALTAMENTE INSEGURO para aplicações reais.
+    // Para um projeto local/protótipo, pode ser aceitável, mas NUNCA faça isso em produção.
+    const users = JSON.parse(localStorage.getItem('users') || '{}');
+    users[username] = { password: password }; // Em um app real, a senha seria hash
+    localStorage.setItem('users', JSON.stringify(users));
+}
+
+function getUserFromLocalStorage(username) {
+    const users = JSON.parse(localStorage.getItem('users') || '{}');
+    return users[username];
+}
+
+function setLoggedInUser(username) {
+    localStorage.setItem('loggedInUser', username);
+}
+
+function getLoggedInUser() {
+    return localStorage.getItem('loggedInUser');
+}
+
+function clearLoggedInUser() {
+    localStorage.removeItem('loggedInUser');
+}
+
+// --- Lógica de Autenticação (Frontend) ---
+async function handleAuth() {
+    const usernameInput = document.getElementById('auth-username');
+    const passwordInput = document.getElementById('auth-password');
+    const username = usernameInput.value;
+    const password = passwordInput.value;
+
+    if (!username || !password) {
+        alert('Por favor, preencha usuário e senha.');
+        return;
+    }
+
+    // Simular cadastro
+    if (authMode === 'signup') {
+        if (getUserFromLocalStorage(username)) {
+            alert('Usuário já existe. Tente fazer login.');
+            return;
+        } else {
+            saveUserToLocalStorage(username, password);
+            alert('Cadastro realizado com sucesso! Agora faça login.');
+            authMode = 'login';
+            toggleAuthMode();
+            return;
+        }
+    } 
+    else {
+        const storedUser = getUserFromLocalStorage(username);
+        if (storedUser && storedUser.password === password) {
+            setLoggedInUser(username);
+            document.getElementById('login-overlay').classList.add('hidden');
+            atualizarUIUsuario(username);
+            carregarHistorico();
+        } else {
+            alert('Usuário ou senha incorretos.');
+        }
+    }
+}
+
+function handleLogout() {
+    clearLoggedInUser();
+    window.location.reload();
+}
+
+// --- Verificar status de login ao carregar a página ---
+document.addEventListener('DOMContentLoaded', function() {
+    const loggedInUser = getLoggedInUser();
+    if (loggedInUser) {
+        // Atualizar a UI para mostrar que o usuário está logado
+        console.log(`Usuário logado: ${loggedInUser}`);
+        // Esconder formulário de login, mostrar botão de logout, etc.
+        const authSection = document.getElementById('auth-section'); // Assumindo que você tem uma seção de auth
+        if (authSection) authSection.style.display = 'none';
+
+        const welcomeMessage = document.getElementById('welcome-message'); // Assumindo um elemento para mensagem
+        if (welcomeMessage) welcomeMessage.textContent = `Bem-vindo, ${loggedInUser}!`;
+
+        const logoutButton = document.getElementById('logout-button'); // Assumindo um botão de logout
+        if (logoutButton) logoutButton.style.display = 'block';
+
+    } else {
+        // Mostrar formulário de login
+        console.log('Nenhum usuário logado.');
+        const authSection = document.getElementById('auth-section');
+        if (authSection) authSection.style.display = 'block';
+        const logoutButton = document.getElementById('logout-button');
+        if (logoutButton) logoutButton.style.display = 'none';
+    }
+
+    // Anexar evento ao formulário de autenticação (se você o criou)
+    const authForm = document.getElementById('auth-form');
+    if (authForm) {
+        authForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            handleAuth();
+        });
+    }
+
+    // Anexar evento ao botão de logout (se você o criou)
+    const logoutBtn = document.getElementById('logout-button');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+    }
+});
+
+        // --- Configuração de Voz (STT e TTS) ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let gravando = false;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'pt-BR';
+            recognition.interimResults = false;
+            recognition.continuous = false;
+
+            recognition.onstart = () => {
+                gravando = true;
+                const btn = document.getElementById('record-btn');
+                btn.style.color = '#ff4444';
+                btn.querySelector('.material-symbols-outlined').innerText = 'mic'; // Estado: Gravando
+            };
+            recognition.onend = () => {
+                gravando = false;
+                const btn = document.getElementById('record-btn');
+                btn.style.color = 'var(--muted)';
+                if (btn.querySelector('.material-symbols-outlined').innerText === 'mic') {
+                    btn.querySelector('.material-symbols-outlined').innerText = 'mic'; // Volta ao padrão
+                }
+            };
+            recognition.onerror = (event) => {
+                const btn = document.getElementById('record-btn');
+                btn.style.color = '#ff4444';
+                if (event.error === 'not-allowed') {
+                    btn.querySelector('.material-symbols-outlined').innerText = 'mic_off'; // Permissão negada
+                } else {
+                    btn.querySelector('.material-symbols-outlined').innerText = 'mic_alert'; // Problema técnico
+                }
+            };
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                const inputEl = document.getElementById('user-input');
+                inputEl.value += (inputEl.value ? ' ' : '') + transcript;
+                inputEl.dispatchEvent(new Event('input')); // Ajusta altura do textarea
+            };
+        }
+
+        function toggleGravacao() {
+            if (!recognition) return alert("Seu navegador não suporta reconhecimento de voz.");
+            // Reseta para o ícone padrão ao tentar gravar novamente
+            document.getElementById('record-btn').querySelector('.material-symbols-outlined').innerText = 'mic';
+            if (gravando) recognition.stop();
+            else recognition.start();
+        }
+
+        function falarTexto(texto) {
+            window.speechSynthesis.cancel(); // Para fala anterior
+            const utterance = new SpeechSynthesisUtterance(texto);
+            utterance.lang = 'pt-BR';
+            utterance.rate = 1.1; // Velocidade levemente mais rápida
+            window.speechSynthesis.speak(utterance);
+        }
+
+        const chat = document.getElementById('chat-container');
+        const input = document.getElementById('user-input');
+        let esperandoResposta = false;
+        let primeiraMensagemDestaSessao = true;
+        let currentChatId = generateUUID();
+        let currentChatTitle = "";
+        let currentAbortController = null;
+
+        function toggleAuthMode() {
+            authMode = (authMode === 'login') ? 'signup' : 'login';
+            document.getElementById('auth-title').innerText = authMode === 'login' ? 'Entrar no Khyron' : 'Criar Conta';
+            document.getElementById('auth-submit-btn').innerText = authMode === 'login' ? 'Entrar' : 'Cadastrar';
+            document.getElementById('auth-switch-text').innerText = authMode === 'login' ? 'Não tem uma conta?' : 'Já tem uma conta?';
+            document.getElementById('auth-switch-link').innerText = authMode === 'login' ? 'Registre-se' : 'Faça Login';
+        }
+
+        function atualizarUIUsuario(username) {
+            if (!username) return;
+            document.getElementById('profile-name').innerText = username;
+            // Pega as duas primeiras letras para o avatar
+            const iniciais = username.substring(0, 2).toUpperCase();
+            document.getElementById('profile-avatar').innerText = iniciais;
+        }
+
+        async function carregarHistorico() {
+            const chats = JSON.parse(localStorage.getItem('khyron_chats') || '[]');
+            const lista = document.getElementById('historico-lista');
+            lista.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+
+            // Inverte a ordem para mostrar os mais recentes no topo
+            chats.slice().reverse().forEach(chatObj => {
+                fragment.appendChild(criarElementoHistorico(chatObj));
+            });
+
+            lista.appendChild(fragment);
+        }
+
+        async function logout() {
+            clearLoggedInUser();
+            window.location.reload();
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const body = document.body;
+            sidebar.classList.toggle('active');
+            body.classList.toggle('sidebar-active');
+        }
+
+        function criarElementoHistorico(chatObj) {
+            const item = document.createElement('div');
+            item.className = 'nav-item';
+            item.id = `chat-item-${chatObj.id}`;
+            
+            const textSpan = document.createElement('span');
+            textSpan.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px; margin-right:5px;">chat_bubble</span> ${chatObj.titulo || 'Nova conversa'}`;
+            textSpan.style.flex = "1";
+            textSpan.style.overflow = "hidden";
+            textSpan.style.textOverflow = "ellipsis";
+            textSpan.style.whiteSpace = "nowrap";
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-chat-btn';
+            delBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                excluirConversa(chatObj.id);
+            };
+
+            item.appendChild(textSpan);
+            item.appendChild(delBtn);
+
+            item.onclick = () => {
+                carregarChatNaTela(chatObj);
+                if (isMobile()) toggleSidebar(); // Fecha ao selecionar no mobile
+            };
+            return item;
+        }
+
+        function adicionarAoHistoricoVisivel(chatObj) {
+            const lista = document.getElementById('historico-lista');
+            const item = criarElementoHistorico(chatObj);
+            lista.prepend(item);
+        }
+
+        async function excluirConversa(chatId) {
+            if (!confirm("Deseja excluir esta conversa do histórico?")) return;
+            let chats = JSON.parse(localStorage.getItem('khyron_chats') || '[]');
+            chats = chats.filter(c => c.id !== chatId);
+            localStorage.setItem('khyron_chats', JSON.stringify(chats));
+            
+            const item = document.getElementById(`chat-item-${chatId}`);
+            if (item) item.remove();
+            if (currentChatId === chatId) iniciarNovoChat();
+        }
+
+        function carregarChatNaTela(chatObj) {
+            chat.innerHTML = '';
+            const mensagens = chatObj.messages || [];
+            mensagens.forEach(msg => {
+                const msgEl = addMessage('', msg.role === 'user' ? 'user' : 'bot');
+                if (msg.role === 'assistant' || msg.role === 'bot') {
+                    msgEl.innerHTML = marked.parse(msg.content);
+                    updateCodeBlocks(msgEl);
+                } else {
+                    msgEl.textContent = msg.content;
+                }
+            });
+            currentChatId = chatObj.id;
+            currentChatTitle = chatObj.titulo;
+            primeiraMensagemDestaSessao = false;
+            if (isMobile()) toggleSidebar();
+        }
+
+        function iniciarNovoChat() {
+            chat.innerHTML = '';
+            addMessage('Olá! Eu sou o Khyron. Como posso te ajudar hoje?', 'bot');
+            currentChatId = generateUUID();
+            currentChatTitle = "";
+            primeiraMensagemDestaSessao = true;
+            if (isMobile()) toggleSidebar();
+            input.focus();
+        }
+
+        async function limparHistorico() {
+            if (!confirm("Isso apagará permanentemente todo o histórico no servidor. Continuar?")) return;
+            
+            localStorage.removeItem('khyron_chats');
+            document.getElementById('historico-lista').innerHTML = '';
+            iniciarNovoChat();
+        }
+
+        function addMessage(text, type, comSpinner = false) {
+            // Remove mensagem de boas vindas no primeiro uso
+            const welcome = document.getElementById('welcome-msg');
+            if (welcome) welcome.style.display = 'none';
+
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            
+            if (type === 'bot') {
+                div.innerHTML = `
+                <div class="bot-content">
+                    <div class="bot-avatar">K</div>
+                    <div style="flex:1">
+                        <div class="bot-text">${comSpinner ? '<div class="spinner" id="spinner-atual"></div>' : text}</div>
+                        <button class="action-btn tts-btn" style="display: ${comSpinner ? 'none' : 'flex'}">
+                            <span class="material-symbols-outlined">volume_up</span> Ouvir Resposta
+                        </button>
+                    </div>
+                </div>`;
+            } else {
+                div.innerText = text;
+            }
+            
+            chat.appendChild(div);
+            scrollToBottom();
+            return div.querySelector('.bot-text') || div;
+        }
+
+        function scrollToBottom() {
+            setTimeout(() => {
+                chat.scrollTop = chat.scrollHeight;
+            }, 50);
+        }
+
+        async function enviar() {
+            if (esperandoResposta) {
+                if (currentAbortController) currentAbortController.abort();
+                return;
+            }
+            
+            const text = input.value.trim();
+            if (!text) return;
+            input.style.height = 'auto'; // Reseta a altura após o envio
+
+            addMessage(text, 'user');
+            input.value = '';
+            input.disabled = true;
+
+            // Ocultar teclado em mobile
+            if (isMobile()) {
+                input.blur();
+            }
+
+            const modo = document.getElementById('modo-ia').value;
+            esperandoResposta = true;
+            
+            const sendBtn = document.getElementById('send-btn');
+            sendBtn.innerHTML = '<span class="material-symbols-outlined">stop</span>'; 
+            
+            let mensagemBotAtual = addMessage('', 'bot', true);
+            let respostaCompleta = "";
+
+            try {
+                const chats = JSON.parse(localStorage.getItem('khyron_chats') || '[]');
+                const currentChat = chats.find(c => c.id === currentChatId);
+                let historicoEnvio = currentChat ? [...currentChat.messages] : [];
+
+                // Faz a IA lembrar do nome se houver um usuário logado
+                const nomeUsuario = getLoggedInUser();
+                if (historicoEnvio.length === 0 && nomeUsuario) {
+                    historicoEnvio.push({ role: 'system', content: `O usuário se chama ${nomeUsuario}. Lembre-se disso e use o nome dele ocasionalmente.` });
+                }
+
+                currentAbortController = new AbortController();
+                const response = await fetch('/perguntar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        texto: text, 
+                        modo: modo, 
+                        historico: historicoEnvio 
+                    }),
+                    signal: currentAbortController.signal
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                // Remove o spinner assim que começar a receber dados
+                const spinner = document.getElementById('spinner-atual');
+                if (spinner) {
+                    spinner.remove();
+                    // Mostra o botão de ouvir
+                    const ttsBtn = mensagemBotAtual.parentElement.querySelector('.tts-btn');
+                    if (ttsBtn) ttsBtn.style.display = 'flex';
+                }
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    if (!esperandoResposta) break; // Para o loop se o usuário cancelar
+                    
+                    const chunk = decoder.decode(value, { stream: true });
+                    respostaCompleta += chunk;
+                    
+                    // Formatação em tempo real
+                    let textoProcessado = respostaCompleta;
+                    if (textoProcessado.includes("<think>")) {
+                        textoProcessado = textoProcessado.replace("<think>", 
+                            `<details class="thought-container" open>
+                             <summary style="color: #888; font-style: italic; cursor: pointer;"><span class="material-symbols-outlined">psychology_alt</span> Pensamento do Khyron</summary>
+                             <div class="thought-content">`);
+                        textoProcessado = textoProcessado.replace("</think>", `</div></details>`);
+                    }
+
+                    mensagemBotAtual.innerHTML = marked.parse(textoProcessado);
+                    
+                    // Renderiza fórmulas se KaTeX estiver disponível
+                    if (typeof renderMathInElement === "function") {
+                        renderMathInElement(mensagemBotAtual, {
+                            delimiters: [
+                                {left: '$$', right: '$$', display: true},
+                                {left: '$', right: '$', display: false}
+                            ],
+                            throwOnError: false
+                        });
+                    }
+                    
+                    scrollToBottom();
+                }
+
+                // Configura o evento do botão "Ouvir" após o término da mensagem
+                const finalTtsBtn = mensagemBotAtual.parentElement.querySelector('.tts-btn');
+                if (finalTtsBtn) {
+                    finalTtsBtn.onclick = () => falarTexto(mensagemBotAtual.innerText);
+                }
+
+                // Aplica o destaque de sintaxe nos blocos de código gerados
+                updateCodeBlocks(mensagemBotAtual);
+
+                if (primeiraMensagemDestaSessao) {
+                    // Gera o título em segundo plano para não bloquear o usuário
+                    fetch('/gerar_titulo', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ texto: text })
+                    }).then(res => res.json()).then(tData => {
+                        currentChatTitle = tData.titulo;
+                        
+                        // ATUALIZA NO LOCAL STORAGE O TÍTULO GERADO
+                        let chats = JSON.parse(localStorage.getItem('khyron_chats') || '[]');
+                        let chatIndex = chats.findIndex(c => c.id === currentChatId);
+                        if (chatIndex !== -1) {
+                            chats[chatIndex].titulo = currentChatTitle;
+                            localStorage.setItem('khyron_chats', JSON.stringify(chats));
+                        }
+                        
+                        // Atualiza a lista lateral sem recarregar a página
+                        carregarHistorico();
+                        primeiraMensagemDestaSessao = false;
+                    }).catch(err => console.error("Erro ao gerar título:", err));
+                }
+                
+                // Salvar no LocalStorage
+                let chatsSalvos = JSON.parse(localStorage.getItem('khyron_chats') || '[]');
+                let chatExistente = chatsSalvos.find(c => c.id === currentChatId);
+                
+                if (chatExistente) {
+                    chatExistente.messages.push({ role: 'user', content: text });
+                    chatExistente.messages.push({ role: 'assistant', content: respostaCompleta });
+                } else {
+                    chatsSalvos.push({
+                        id: currentChatId,
+                        titulo: currentChatTitle,
+                        messages: [
+                            { role: 'user', content: text },
+                            { role: 'assistant', content: respostaCompleta }
+                        ]
+                    });
+                }
+                localStorage.setItem('khyron_chats', JSON.stringify(chatsSalvos));
+
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    console.log("Geração interrompida pelo usuário.");
+                } else {
+                    const spinner = document.getElementById('spinner-atual');
+                    if (spinner) spinner.remove();
+                    mensagemBotAtual.innerText = "Erro ao conectar com o servidor.";
+                }
+            } finally {
+                esperandoResposta = false;
+                currentAbortController = null;
+                sendBtn.innerHTML = '<span class="material-symbols-outlined">arrow_upward</span>'; 
+
+                input.disabled = false;
+                mensagemBotAtual = null;
+                setTimeout(() => {
+                    input.focus();
+                }, 100);
+            }
+        }
+
+        // Auto-resize textarea
+        input.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        input.addEventListener('keydown', (e) => { 
+            if (e.key === 'Enter' && !e.shiftKey && !esperandoResposta) {
+                e.preventDefault();
+                enviar();
+            }
+        });
+        
+        // Previne comportamento padrão de zoom ao fazer double-tap
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', (e) => {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                e.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+    </script>
+</body>
+</html>
