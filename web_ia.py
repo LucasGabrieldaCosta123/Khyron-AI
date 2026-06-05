@@ -20,6 +20,12 @@ if OLLAMA_API_KEY:
 
 client = ollama.Client(host=OLLAMA_HOST, headers=headers)
 
+# --- LÓGICA DE DETECÇÃO DE MODELO ---
+# Se o host for local ou um túnel (ngrok), usamos o nome curto. 
+# Caso contrário (nuvem real), usamos o nome completo.
+is_local = "localhost" in OLLAMA_HOST or "ngrok" in OLLAMA_HOST
+MODELO_ATIVO = 'khyron' if is_local else MODELO_IA
+
 # --- Rotas do Site ---
 @app.route('/')
 def index():
@@ -35,12 +41,7 @@ def gerar_titulo():
     texto = request.json.get('texto', '')
     prompt = f"Resuma a frase em um título de 2 ou 3 palavras. NÃO use aspas, pontos ou emojis. Responda APENAS as palavras do título: '{texto}'"
     try:
-        # Tenta usar o nome completo, se falhar (local), tenta apenas 'khyron'
-        try:
-            res = client.chat(model=MODELO_IA, messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
-        except:
-            res = client.chat(model='khyron', messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
-            
+        res = client.chat(model=MODELO_ATIVO, messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
         titulo = res['message']['content'].strip()
         return jsonify({"titulo": titulo})
     except:
@@ -60,12 +61,7 @@ def perguntar():
             # Adiciona a pergunta atual
             mensagens_contexto.append({'role': 'user', 'content': pergunta})
 
-            # Tenta o modelo completo (nuvem), se não achar, usa o local
-            modelo_final = MODELO_IA
-            if OLLAMA_HOST == "http://localhost:11434":
-                modelo_final = 'khyron'
-
-            for chunk in client.chat(model=modelo_final, messages=mensagens_contexto, stream=True):
+            for chunk in client.chat(model=MODELO_ATIVO, messages=mensagens_contexto, stream=True):
                 yield chunk['message']['content']
         except Exception as e:
             yield f"Erro ao conectar com Ollama: {str(e)}"
