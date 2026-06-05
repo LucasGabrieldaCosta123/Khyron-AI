@@ -1,10 +1,13 @@
-from flask import Flask, render_template, request, jsonify, Response, stream_with_context
+from flask import Flask, render_template, request, jsonify, Response, stream_with_context # type: ignore[reportMissingImports]
 import re
 import os
 import json
 import ollama # type: ignore
 
 app = Flask(__name__)
+
+# Configuração do Modelo (lucassg_12 está correto!)
+MODELO_IA = 'lucassg_12/khyron'
 
 # Configuração para produção (Vercel) e Local
 # OLLAMA_HOST deve ser configurado nas Environment Variables da Vercel
@@ -32,7 +35,7 @@ def gerar_titulo():
     texto = request.json.get('texto', '')
     prompt = f"Resuma a frase em um título de 2 ou 3 palavras. NÃO use aspas, pontos ou emojis. Responda APENAS as palavras do título: '{texto}'"
     try:
-        res = client.chat(model='lucassg_12/khyron', messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
+        res = client.chat(model=MODELO_IA, messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
         titulo = res['message']['content'].strip()
         return jsonify({"titulo": titulo})
     except:
@@ -52,7 +55,7 @@ def perguntar():
             # Adiciona a pergunta atual
             mensagens_contexto.append({'role': 'user', 'content': pergunta})
 
-            for chunk in client.chat(model='lucassg_12/khyron', messages=mensagens_contexto, stream=True):
+            for chunk in client.chat(model=MODELO_IA, messages=mensagens_contexto, stream=True):
                 yield chunk['message']['content']
         except Exception as e:
             yield f"Erro ao conectar com Ollama: {str(e)}"
