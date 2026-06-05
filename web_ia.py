@@ -79,7 +79,7 @@ def perguntar():
         except Exception as e:
             yield f"❌ Erro de Conexão/Rede: {type(e).__name__} - {str(e)}"
     
-    return Response(stream_with_context(generate()), mimetype='content-type: text/event-stream')
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 if __name__ == '__main__':
     try:
