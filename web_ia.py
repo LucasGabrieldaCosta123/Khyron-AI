@@ -10,12 +10,13 @@ app = Flask(__name__)
 MODELO_IA = 'lucassg_12/khyron'
 
 # Configuração para produção (Vercel) e Local
-# OLLAMA_HOST deve ser configurado nas Environment Variables da Vercel
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+# No Vercel, configure OLLAMA_HOST como https://api.ollama.com
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434").rstrip('/')
 OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY")
 
 headers = {}
 if OLLAMA_API_KEY:
+    # Garante que o token seja enviado corretamente para a nuvem
     headers["Authorization"] = f"Bearer {OLLAMA_API_KEY}"
 
 # Adicionado um timeout de 60 segundos. Modelos na nuvem (como o Gemma 31B) 
@@ -23,9 +24,9 @@ if OLLAMA_API_KEY:
 client = ollama.Client(host=OLLAMA_HOST, headers=headers, timeout=60.0)
 
 # --- LÓGICA DE DETECÇÃO DE MODELO ---
-# Se o host for local ou um túnel (ngrok), usamos o nome curto. 
-# Caso contrário (nuvem real), usamos o nome completo.
-is_local = any(x in OLLAMA_HOST for x in ["localhost", "127.0.0.1", "ngrok"])
+# Removido 'ngrok' pois você não o utiliza.
+# Se for localhost, usa o nome curto; se for na nuvem (ollama.com), usa o nome completo.
+is_local = any(x in OLLAMA_HOST for x in ["localhost", "127.0.0.1"])
 MODELO_ATIVO = 'khyron' if is_local else MODELO_IA
 
 # --- Rotas do Site ---
@@ -79,7 +80,7 @@ def perguntar():
     return Response(stream_with_context(generate()), mimetype='text/plain')
 
 # Necessário para Vercel encontrar o app na raiz
-app_handler = app
+app = app
 
 if __name__ == '__main__':
     try:
