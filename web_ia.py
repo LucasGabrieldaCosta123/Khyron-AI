@@ -61,14 +61,22 @@ def pesquisar_web(query):
         return f"Erro ao pesquisar na web: {str(e)}"
 
 def otimizar_query(pergunta):
-    """Transforma a pergunta do usuário em uma query de busca eficiente."""
+    """Transforma a pergunta do usuário em uma query de busca profissional e ultra-específica."""
     if usar_nuvem():
         try:
-            prompt = f"Converta a pergunta do usuário em uma query de busca curta e eficiente para o DuckDuckGo (em português). Pergunta: '{pergunta}'. Responda APENAS a query, sem aspas."
+            # Prompt aprimorado para evitar termos ambíguos (como "bolsa" = stock market)
+            # e forçar a busca por fatos recentes e específicos.
+            prompt = (
+                f"Você é um especialista em SEO e buscas. Transforme a pergunta do usuário em 2 ou 3 queries de busca "
+                f"curtas, separadas por '|', que tragam os resultados mais precisos e ATUAIS no DuckDuckGo. "
+                f"Sempre adicione termos como 'notícias', 'atualizações', 'hoje' ou '2026' se for o caso. "
+                f"Se o termo for 'Bolsa Família', especifique 'programa social Brasil' para evitar resultados de bolsa de valores. "
+                f"Pergunta: '{pergunta}'. Responda APENAS as queries, sem aspas."
+            )
             res = groq_client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
                 model=MODELO_NUVEM,
-                max_tokens=20
+                max_tokens=40
             )
             return res.choices[0].message.content.strip()
         except:
@@ -161,9 +169,9 @@ def perguntar():
                 system_prompt += (
                     f"\n\nIMPORTANTE: O usuário fez uma pergunta que exigiu busca na web. "
                     f"Abaixo estão os fatos reais extraídos da internet. "
-                    f"Você DEVE usar esses resultados para construir sua resposta. "
-                    f"NÃO diga que não tem informações se houver dados nos resultados da web. "
-                    f"Seja detalhado, cite os fatos e evite respostas genéricas.\n{contexto_extra}"
+                    f"Você DEVE ignorar qualquer resultado irrelevante (por exemplo, se a busca for sobre o programa 'Bolsa Família' e o resultado for sobre 'Bolsa de Valores', ignore-o). "
+                    f"Extraia as notícias REAIS, fatos, datas e nomes. Não diga apenas que 'existem notícias', diga QUAIS são as notícias. "
+                    f"Seja direto, informativo e detalhado. Se não houver fatos concretos nos resultados, admita, mas tente extrair o máximo possível.\n{contexto_extra}"
                 )
 
             mensagens = [{'role': 'system', 'content': system_prompt}]
