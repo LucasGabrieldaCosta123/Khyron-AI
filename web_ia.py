@@ -48,7 +48,6 @@ def pesquisar_web(query):
     if not DDGS:
         return "Erro: Biblioteca de busca não instalada."
 
-    # Se a query vier com '|', testamos as variações
     queries = query.split('|')
     todos_resultados = []
 
@@ -56,20 +55,25 @@ def pesquisar_web(query):
         with DDGS() as ddgs:
             for q in queries:
                 q = q.strip()
-                # Tentativa 1: Busca normal
-                res = [r for r in ddgs.text(q, max_results=5)]
-                if res:
-                    todos_resultados.extend(res)
+                # Tentativa 1: Busca normal com região Brasil para maior precisão
+                try:
+                    res = [r for r in ddgs.text(q, region='br-pt', max_results=5)]
+                    if res:
+                        todos_resultados.extend(res)
+                except:
+                    pass
 
-                # Tentativa 2: Se for notícia, tenta adicionar 'g1' ou 'notícias' para forçar fontes confiáveis
-                if not res and ("notícia" in q.lower() or "bolsa família" in q.lower()):
-                    res_especifica = [r for r in ddgs.text(f"{q} site:g1.globo.com", max_results=5)]
-                    todos_resultados.extend(res_especifica)
+                # Tentativa 2: Se for notícia, tenta forçar fontes confiáveis
+                if not todos_resultados and ("notícia" in q.lower() or "bolsa família" in q.lower() or "futebol" in q.lower()):
+                    try:
+                        res_especifica = [r for r in ddgs.text(f"{q} site:g1.globo.com", region='br-pt', max_results=5)]
+                        todos_resultados.extend(res_especifica)
+                    except:
+                        pass
 
             if not todos_resultados:
-                return "Nenhum resultado relevante encontrado na web."
+                return "" # Retorna vazio em vez de uma frase que a IA possa repetir
 
-            # Remove duplicatas simples por URL
             vistos = set()
             resultados_unicos = []
             for r in todos_resultados:
@@ -81,7 +85,7 @@ def pesquisar_web(query):
             return contexto_web
     except Exception as e:
         print(f"❌ Erro na pesquisa web: {e}")
-        return f"Erro ao pesquisar na web: {str(e)}"
+        return ""
 
 def otimizar_query(pergunta):
     """Transforma a pergunta do usuário em queries de busca eficientes, evitando datas futuras que quebram a busca."""
@@ -170,15 +174,12 @@ def perguntar():
             contexto_extra = ""
             precisou = False
             if precisa_de_busca(pergunta):
-                # Otimiza a query para obter melhores resultados
                 query_otimizada = otimizar_query(pergunta)
-
-                # SIMULAÇÃO DE TEMPO HUMANO: Espera para parecer que está pesquisando
                 time.sleep(3.0)
-
                 resultados_web = pesquisar_web(query_otimizada)
-                contexto_extra = f"\n\n--- RESULTADOS DA WEB (Baseados na busca: {query_otimizada}) ---\n{resultados_web}\n-------------------------"
-                precisou = True
+                if resultados_web: # Só adiciona se realmente encontrou algo
+                    contexto_extra = f"\n\n--- RESULTADOS DA WEB (Baseados na busca: {query_otimizada}) ---\n{resultados_web}\n-------------------------"
+                    precisou = True
 
             # Sinaliza para o frontend que está pesquisando
             if precisou:
@@ -189,16 +190,16 @@ def perguntar():
             system_prompt = (
                 f"Você é o Khyron, um assistente direto, amigável e ultra-preciso. "
                 f"Data e hora atual do usuário: {local_datetime}. "
-                f"Use as seguintes informações atualizadas para responder: {conhecimento}\n\n"
-                f"PERSONALIDADE: Seja natural. Se o usuário disser 'Olá', responda apenas: 'Olá, {username}, com o que posso te ajudar hoje?'. "
-                f"NUNCA use frases robóticas como 'Estou aqui para fornecer informações precisas' ou 'estou à disposição'. Converse como um amigo inteligente."
+                f"PERSONALIDADE: Seja natural. Não use frases robóticas. Converse como um amigo inteligente. "
+                f"Se o usuário disser 'Olá', responda apenas: 'Olá, {username}, com o que posso te ajudar hoje?'\n\n"
+                f"BASE DE DADOS INTERNA (SÓ USE SE FOR RELEVANTE): \n{conhecimento}\n\n"
+                f"REGRA CRÍTICA: Nunca mencione tópicos da sua Base de Dados Interna (como Poppy Playtime ou TADC) a menos que o usuário tenha perguntado explicitamente sobre eles ou que seja extremamente pertinente ao assunto. Se você não encontrar a resposta nos resultados da web nem na base interna, diga honestamente que não sabe, mas NÃO tente 'encher linguiça' sugerindo tópicos irrelevantes."
             )
             if contexto_extra:
                 system_prompt += (
                     f"\n\nIMPORTANTE: O usuário fez uma pergunta que exigiu busca na web. "
-                    f"Use os resultados abaixo para responder. Ignore resultados irrelevantes (ex: se a busca for 'Bolsa Família' e o resultado for sobre 'Bolsa de Valores', ignore-o). "
-                    f"Sempre extraia FATOS, datas e nomes. Não diga apenas que 'existem notícias', diga EXATAMENTE quais são as notícias. "
-                    f"Seja direto e informativo. Se não houver fatos concretos nos resultados, admita honestamente, mas tente extrair o máximo possível.\n{contexto_extra}"
+                    f"Use os resultados abaixo para responder. Ignore resultados irrelevantes. "
+                    f"Sempre extraia FATOS, datas e nomes. Seja direto e informativo.\n{contexto_extra}"
                 )
 
             mensagens = [{'role': 'system', 'content': system_prompt}]
