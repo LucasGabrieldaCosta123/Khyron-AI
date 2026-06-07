@@ -8,6 +8,10 @@
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <!-- Adicionando suporte para linguagens específicas e sub-linguagens -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/xml.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/css.min.js"></script>
   <!-- KaTeX para fórmulas matemáticas -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
@@ -27,16 +31,40 @@
       --green: #10a37f;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Inter, system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
-    html, body { width: 100%; height: 100%; }
-    body { display: flex; background: var(--bg); color: var(--text); overflow: hidden; }
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: Inter, system-ui, sans-serif;
+        -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+        width: 100%;
+        height: 100%;
+    }
+    body {
+    display: flex;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+}
     .hljs {
         color: #abb2bf;
         background: #1b1919;
     }
 
     /* Sidebar */
-    .sidebar { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; padding: 12px 10px; background: var(--sidebar-bg); border-right: 1px solid rgba(255, 255, 255, 0.04); overflow-y: auto; gap: 4px; }
+    .sidebar {
+        width: 260px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 12px 10px;
+        background: var(--sidebar-bg);
+        border-right: 1px solid rgba(255, 255, 255, 0.04);
+        overflow-y: auto;
+        gap: 4px;
+    }
     .brand { display: flex; align-items: center; padding: 6px 8px 14px; }
     .brand-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 50%; color: var(--green); }
     .brand-icon .material-symbols-outlined { font-size: 18px; }
@@ -222,7 +250,7 @@
         
         <div class="section-title">Versão do Modelo</div>
         <select id="modo-ia">
-            <option value="ollama">Khyron v1 (Ollama)</option>
+            <option value="ollama">Khyron v1</option>
         </select>
         <div class="nav-item">
             <span style="display:flex; align-items:center; gap:10px;"><span class="material-symbols-outlined">settings</span> Configurações</span>
@@ -306,11 +334,19 @@
         function updateCodeBlocks(container) {
             if (typeof hljs !== 'undefined') {
                 container.querySelectorAll('pre').forEach((pre) => {
-                    const code = pre.querySelector('code');
+                    let code = pre.querySelector('code');
                     if (!code) return;
+
+                    // Se for JSX, o highlight.js as vezes se confunde. 
+                    // Vamos garantir que ele tente detectar a melhor linguagem.
+                    const hasJsx = code.className.includes('jsx') || code.className.includes('javascript');
                     
                     // Aplica o destaque de sintaxe
-                    hljs.highlightElement(code);
+                    if (code.className.includes('language-')) {
+                        hljs.highlightElement(code);
+                    } else {
+                        hljs.highlightAuto(code.innerText); // Tenta detectar se não houver classe
+                    }
 
                     // Adiciona o botão de copiar se ele ainda não existir no bloco
                     if (!pre.querySelector('.copy-code-btn')) {
@@ -361,8 +397,6 @@
                 return v.toString(16);
             });
         }
-
-        // Exemplo de JavaScript no seu index.html ou arquivo JS
 
 // --- Funções Auxiliares para LocalStorage ---
 function saveUserToLocalStorage(username, password) {

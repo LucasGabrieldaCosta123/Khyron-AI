@@ -1,35 +1,31 @@
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context # type: ignore[reportMissingImports]
-import re
 import os
-import json
 import ollama # type: ignore
+
+# Tentamos importar o Groq. Se não estiver instalado, o código não quebra.
+try:
+    from groq import Groq
+except ImportError:
+    Groq = None
 
 app = Flask(__name__)
 
-# Configuração do Modelo (lucassg_12 está correto!)
-MODELO_IA_NUVEM = os.getenv("OLLAMA_MODEL", "lucassg_12/khyron")
+# --- CONFIGURAÇÕES ---
+# 1. Groq (Nuvem) - Configure GROQ_API_KEY nas variáveis de ambiente do Vercel
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+MODELO_NUVEM = "llama-3.3-70b-versatile" # Modelo ultra rápido e potente do Groq
 
-# Configuração para produção (Vercel) e Local
-# No Vercel, configure OLLAMA_HOST como https://api.ollama.com
+# 2. Ollama (Local)
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434").strip().rstrip('/')
-OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY")
+MODELO_LOCAL = "khyron" # Seu modelo local
 
-headers = {}
-if OLLAMA_API_KEY:
-    # Garante que o token seja enviado corretamente para a nuvem
-    headers["Authorization"] = f"Bearer {OLLAMA_API_KEY}"
+# Inicialização dos clientes
+groq_client = Groq(api_key=GROQ_API_KEY) if (GROQ_API_KEY and Groq) else None
+ollama_client = ollama.Client(host=OLLAMA_HOST, timeout=60.0)
 
-# Adicionado um timeout de 60 segundos. Modelos na nuvem (como o Gemma 31B) 
-# podem levar algum tempo para processar o contexto inicial.
-client = ollama.Client(host=OLLAMA_HOST, headers=headers, timeout=60.0)
-
-# --- LÓGICA DE DETECÇÃO DE MODELO ---
-# Removido 'ngrok' pois você não o utiliza.
-# Se for localhost, usa o nome curto; se for na nuvem (ollama.com), usa o nome completo.
-def obter_modelo_ativo():
-    is_local = any(x in OLLAMA_HOST for x in ["localhost", "127.0.0.1"])
-    # Prioriza a variável de ambiente se ela for definida manualmente
-    return "khyron" if is_local else MODELO_IA_NUVEM
+def usar_nuvem():
+    """Verifica se deve usar a nuvem (Groq) ou o Ollama local."""
+    return GROQ_API_KEY is not None and groq_client is not None
 
 # --- Rotas do Site ---
 @app.route('/')
@@ -38,24 +34,31 @@ def index():
 
 @app.route('/favicon.ico')
 def favicon():
-    # Silencia o erro 404 de favicon no console do navegador
     return Response(status=204)
 
 @app.route('/gerar_titulo', methods=['POST'])
 def gerar_titulo():
     texto = request.json.get('texto', '')
     prompt = f"Resuma a frase em um título de 2 ou 3 palavras. NÃO use aspas, pontos ou emojis. Responda APENAS as palavras do título: '{texto}'"
+
     try:
-        modelo = obter_modelo_ativo()
-        res = client.chat(model=modelo, messages=[{'role': 'user', 'content': prompt}], options={'num_predict': 10})
-        titulo = res['message']['content'].strip()
+        if usar_nuvem():
+            # Chamada para Groq (Nuvem)
+            completion = groq_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model=MODELO_NUVEM,
+                max_tokens=10
+            )
+            titulo = completion.choices[0].message.content.strip()
+        else:
+            # Chamada para Ollama (Local)
+            res = ollama_client.chat(model=MODELO_LOCAL, messages=[{'role': 'user', 'content': prompt}])
+            titulo = res['message']['content'].strip()
+
         return jsonify({"titulo": titulo})
-    except ollama.ResponseError as e:
-        print(f"❌ Erro do Ollama ao gerar título: {e.error} (Status: {e.status_code})")
-        return jsonify({"titulo": "Erro: Modelo não encontrado", "error": str(e)}), e.status_code
     except Exception as e:
-        print(f"❌ Erro inesperado ao gerar título: {str(e)}")
-        return jsonify({"titulo": "Erro de Conexão", "error": str(e)}), 500
+        print(f"❌ Erro ao gerar título: {str(e)}")
+        return jsonify({"titulo": "Erro", "error": str(e)}), 500
 
 @app.route('/perguntar', methods=['POST'])
 def perguntar():
@@ -65,24 +68,30 @@ def perguntar():
 
     def generate():
         try:
-            modelo = obter_modelo_ativo()
-            # Constrói o contexto com o histórico enviado pelo navegador
-            mensagens_contexto = [{'role': m['role'], 'content': m['content']} for m in historico]
-            
-            # Adiciona a pergunta atual
-            mensagens_contexto.append({'role': 'user', 'content': pergunta})
+            # Prepara as mensagens para a IA
+            mensagens = [{'role': m['role'], 'content': m['content']} for m in historico]
+            mensagens.append({'role': 'user', 'content': pergunta})
 
-            for chunk in client.chat(model=modelo, messages=mensagens_contexto, stream=True):
-                yield chunk['message']['content']
-        except ollama.ResponseError as e:
-            yield f"❌ Erro do Servidor Ollama (Status {e.status_code}): {e.error}. "
+            if usar_nuvem():
+                # Stream via Groq (Nuvem)
+                stream = groq_client.chat.completions.create(
+                    messages=mensagens,
+                    model=MODELO_NUVEM,
+                    stream=True
+                )
+                for chunk in stream:
+                    content = chunk.choices[0].delta.content
+                    if content:
+                        yield content
+            else:
+                # Stream via Ollama (Local)
+                for chunk in ollama_client.chat(model=MODELO_LOCAL, messages=mensagens, stream=True):
+                    yield chunk['message']['content']
+
         except Exception as e:
-            yield f"❌ Erro de Conexão/Rede: {type(e).__name__} - {str(e)}"
-    
+            yield f"❌ Erro na conexão: {str(e)}"
+
     return Response(stream_with_context(generate()), mimetype='text/event-stream')
 
 if __name__ == '__main__':
-    try:
-        app.run(debug=True, host='0.0.0.0', port=5000)
-    except KeyboardInterrupt:
-        print("\nSaindo graciosamente...")
+    app.run(debug=True, host='0.0.0.0', port=5000)
