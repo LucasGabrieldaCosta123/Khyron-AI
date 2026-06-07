@@ -96,7 +96,33 @@
     .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 95; }
 
     /* Chat Container */
-    #chat-container { flex: 1; overflow-y: auto; padding: 80px 20px 20px 20px; display: flex; flex-direction: column; gap: 24px; max-width: 800px; width: 100%; margin: 0 auto; -webkit-overflow-scrolling: touch; }
+    #chat-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 80px 20px 20px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        max-width: 800px;
+        width: 100%;
+        margin: 0 auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    /* Chrome, Safari e Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Firefox */
+.no-scrollbar {
+  scrollbar-width: none; /* Oculta barra */
+}
+
+/* IE e Edge antigo */
+.no-scrollbar {
+  -ms-overflow-style: none;
+}
+
     .message { max-width: 85%; line-height: 1.6; word-wrap: break-word; font-size: 16px; }
     .user { align-self: flex-end; background: var(--surface-alt); padding: 10px 20px; border-radius: 20px; border: 1px solid var(--border); }
     .bot { align-self: flex-start; width: 100%; border-bottom: none; }
