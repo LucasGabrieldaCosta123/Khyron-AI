@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context # type: ignore[reportMissingImports]
 import os
 import ollama # type: ignore
+import time # Importado para simular o tempo de pesquisa
 
 # Tentamos importar o Groq e a Busca
 try:
@@ -43,34 +44,53 @@ def carregar_conhecimento():
 
 # --- FUNÇÕES DE BUSCA WEB ---
 def pesquisar_web(query):
-    """Faz uma busca no DuckDuckGo e retorna os resumos dos resultados."""
+    """Faz buscas na web com múltiplas tentativas e fallback para G1/Notícias."""
     if not DDGS:
         return "Erro: Biblioteca de busca não instalada."
 
+    # Se a query vier com '|', testamos as variações
+    queries = query.split('|')
+    todos_resultados = []
+
     try:
         with DDGS() as ddgs:
-            # Aumentamos para 10 resultados para ter mais precisão e contexto
-            results = [r for r in ddgs.text(query, max_results=10)]
-            if not results:
+            for q in queries:
+                q = q.strip()
+                # Tentativa 1: Busca normal
+                res = [r for r in ddgs.text(q, max_results=5)]
+                if res:
+                    todos_resultados.extend(res)
+
+                # Tentativa 2: Se for notícia, tenta adicionar 'g1' ou 'notícias' para forçar fontes confiáveis
+                if not res and ("notícia" in q.lower() or "bolsa família" in q.lower()):
+                    res_especifica = [r for r in ddgs.text(f"{q} site:g1.globo.com", max_results=5)]
+                    todos_resultados.extend(res_especifica)
+
+            if not todos_resultados:
                 return "Nenhum resultado relevante encontrado na web."
 
-            contexto_web = "\n".join([f"Resultado {i+1}: {r['body']}" for i, r in enumerate(results)])
+            # Remove duplicatas simples por URL
+            vistos = set()
+            resultados_unicos = []
+            for r in todos_resultados:
+                if r['href'] not in vistos:
+                    vistos.add(r['href'])
+                    resultados_unicos.append(r)
+
+            contexto_web = "\n".join([f"Resultado {i+1}: {r['body']}" for i, r in enumerate(resultados_unicos[:15])])
             return contexto_web
     except Exception as e:
         print(f"❌ Erro na pesquisa web: {e}")
         return f"Erro ao pesquisar na web: {str(e)}"
 
 def otimizar_query(pergunta):
-    """Transforma a pergunta do usuário em uma query de busca profissional e ultra-específica."""
+    """Transforma a pergunta do usuário em queries de busca eficientes, evitando datas futuras que quebram a busca."""
     if usar_nuvem():
         try:
-            # Prompt aprimorado para evitar termos ambíguos (como "bolsa" = stock market)
-            # e forçar a busca por fatos recentes e específicos.
             prompt = (
-                f"Você é um especialista em SEO e buscas. Transforme a pergunta do usuário em 2 ou 3 queries de busca "
-                f"curtas, separadas por '|', que tragam os resultados mais precisos e ATUAIS no DuckDuckGo. "
-                f"Sempre adicione termos como 'notícias', 'atualizações', 'hoje' ou '2026' se for o caso. "
-                f"Se o termo for 'Bolsa Família', especifique 'programa social Brasil' para evitar resultados de bolsa de valores. "
+                f"Você é um especialista em SEO. Converta a pergunta do usuário em 2 queries de busca curtas e eficazes para o DuckDuckGo, separadas por '|'. "
+                f"Use termos naturais. NÃO force anos como '2026' a menos que o usuário tenha pedido especificamente. "
+                f"Se for sobre 'Bolsa Família', use 'Bolsa Família notícias Brasil'. "
                 f"Pergunta: '{pergunta}'. Responda APENAS as queries, sem aspas."
             )
             res = groq_client.chat.completions.create(
@@ -151,6 +171,10 @@ def perguntar():
             if precisa_de_busca(pergunta):
                 # Otimiza a query para obter melhores resultados
                 query_otimizada = otimizar_query(pergunta)
+
+                # SIMULAÇÃO DE TEMPO HUMANO: Espera para parecer que está pesquisando
+                time.sleep(3.0)
+
                 resultados_web = pesquisar_web(query_otimizada)
                 contexto_extra = f"\n\n--- RESULTADOS DA WEB (Baseados na busca: {query_otimizada}) ---\n{resultados_web}\n-------------------------"
                 precisou = True
@@ -162,16 +186,18 @@ def perguntar():
             # 2. Prepara as mensagens para a IA
             conhecimento = carregar_conhecimento()
             system_prompt = (
-                f"Você é a IA Khyron, um assistente ultra-preciso. Data e hora atual do usuário: {local_datetime}. "
-                f"Use as seguintes informações atualizadas para responder com precisão: {conhecimento}"
+                f"Você é o Khyron, um assistente direto, amigável e ultra-preciso. "
+                f"Data e hora atual do usuário: {local_datetime}. "
+                f"Use as seguintes informações atualizadas para responder: {conhecimento}\n\n"
+                f"PERSONALIDADE: Seja natural. Se o usuário disser 'Olá', responda apenas: 'Olá, {getLoggedInUser() or 'usuário'}, com o que posso te ajudar hoje?'. "
+                f"NUNCA use frases robóticas como 'Estou aqui para fornecer informações precisas' ou 'estou à disposição'. Converse como um amigo inteligente."
             )
             if contexto_extra:
                 system_prompt += (
                     f"\n\nIMPORTANTE: O usuário fez uma pergunta que exigiu busca na web. "
-                    f"Abaixo estão os fatos reais extraídos da internet. "
-                    f"Você DEVE ignorar qualquer resultado irrelevante (por exemplo, se a busca for sobre o programa 'Bolsa Família' e o resultado for sobre 'Bolsa de Valores', ignore-o). "
-                    f"Extraia as notícias REAIS, fatos, datas e nomes. Não diga apenas que 'existem notícias', diga QUAIS são as notícias. "
-                    f"Seja direto, informativo e detalhado. Se não houver fatos concretos nos resultados, admita, mas tente extrair o máximo possível.\n{contexto_extra}"
+                    f"Use os resultados abaixo para responder. Ignore resultados irrelevantes (ex: se a busca for 'Bolsa Família' e o resultado for sobre 'Bolsa de Valores', ignore-o). "
+                    f"Sempre extraia FATOS, datas e nomes. Não diga apenas que 'existem notícias', diga EXATAMENTE quais são as notícias. "
+                    f"Seja direto e informativo. Se não houver fatos concretos nos resultados, admita honestamente, mas tente extrair o máximo possível.\n{contexto_extra}"
                 )
 
             mensagens = [{'role': 'system', 'content': system_prompt}]
