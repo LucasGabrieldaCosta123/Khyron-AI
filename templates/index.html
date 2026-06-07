@@ -767,10 +767,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const response = await fetch('/perguntar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        texto: text, 
-                        modo: modo, 
-                        historico: historicoEnvio 
+                    body: JSON.stringify({
+                        texto: text,
+                        modo: modo,
+                        historico: historicoEnvio,
+                        local_datetime: new Date().toLocaleString('pt-BR')
                     }),
                     signal: currentAbortController.signal
                 });

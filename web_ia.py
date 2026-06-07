@@ -23,6 +23,15 @@ MODELO_LOCAL = "khyron" # Seu modelo local
 groq_client = Groq(api_key=GROQ_API_KEY) if (GROQ_API_KEY and Groq) else None
 ollama_client = ollama.Client(host=OLLAMA_HOST, timeout=60.0)
 
+def carregar_conhecimento():
+    """Lê o arquivo de conhecimento para atualizar a IA."""
+    try:
+        with open("knowledge.txt", "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        print(f"⚠️ Não foi possível carregar knowledge.txt: {e}")
+        return ""
+
 def usar_nuvem():
     """Verifica se deve usar a nuvem (Groq) ou o Ollama local."""
     return GROQ_API_KEY is not None and groq_client is not None
@@ -39,7 +48,8 @@ def favicon():
 @app.route('/gerar_titulo', methods=['POST'])
 def gerar_titulo():
     texto = request.json.get('texto', '')
-    prompt = f"Resuma a frase em um título de 2 ou 3 palavras. NÃO use aspas, pontos ou emojis. Responda APENAS as palavras do título: '{texto}'"
+    conhecimento = carregar_conhecimento()
+    prompt = f"Informações Atualizadas: {conhecimento}\n\nTarefa: Resuma a frase em um título de 2 ou 3 palavras. NÃO use aspas, pontos ou emojis. Responda APENAS as palavras do título: '{texto}'"
 
     try:
         if usar_nuvem():
@@ -65,11 +75,14 @@ def perguntar():
     dados = request.json
     pergunta = dados.get('texto', '')
     historico = dados.get('historico', [])
+    local_datetime = dados.get('local_datetime', 'Não informada')
 
     def generate():
         try:
             # Prepara as mensagens para a IA
-            mensagens = [{'role': m['role'], 'content': m['content']} for m in historico]
+            conhecimento = carregar_conhecimento()
+            mensagens = [{'role': 'system', 'content': f"Você é a IA Khyron. Data e hora atual do usuário: {local_datetime}. Use as seguintes informações atualizadas para responder com precisão: {conhecimento}"}]
+            mensagens += [{'role': m['role'], 'content': m['content']} for m in historico]
             mensagens.append({'role': 'user', 'content': pergunta})
 
             if usar_nuvem():
