@@ -5,12 +5,12 @@ import time # Importado para simular o tempo de pesquisa
 
 # Tentamos importar o Groq e a Busca
 try:
-    from groq import Groq
+    from groq import Groq #type: ignore
 except ImportError:
     Groq = None
 
 try:
-    from duckduckgo_search import DDGS
+    from duckduckgo_search import DDGS #type: ignore
 except ImportError:
     DDGS = None
 
@@ -162,6 +162,7 @@ def perguntar():
     pergunta = dados.get('texto', '')
     historico = dados.get('historico', [])
     local_datetime = dados.get('local_datetime', 'Não informada')
+    username = dados.get('username', 'usuário')
 
     def generate():
         try:
@@ -189,7 +190,7 @@ def perguntar():
                 f"Você é o Khyron, um assistente direto, amigável e ultra-preciso. "
                 f"Data e hora atual do usuário: {local_datetime}. "
                 f"Use as seguintes informações atualizadas para responder: {conhecimento}\n\n"
-                f"PERSONALIDADE: Seja natural. Se o usuário disser 'Olá', responda apenas: 'Olá, {getLoggedInUser() or 'usuário'}, com o que posso te ajudar hoje?'. "
+                f"PERSONALIDADE: Seja natural. Se o usuário disser 'Olá', responda apenas: 'Olá, {username}, com o que posso te ajudar hoje?'. "
                 f"NUNCA use frases robóticas como 'Estou aqui para fornecer informações precisas' ou 'estou à disposição'. Converse como um amigo inteligente."
             )
             if contexto_extra:
