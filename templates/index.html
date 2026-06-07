@@ -703,7 +703,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="bot-content">
                     <div class="bot-avatar">K</div>
                     <div style="flex:1">
-                        <div class="bot-text">${comSpinner ? '<div class="spinner" id="spinner-atual"></div>' : text}</div>
+                        <div class="bot-text">${comSpinner ? '<div id="spinner-container" style="display:flex; align-items:center;"><div class="spinner" id="spinner-atual"></div><span id="spinner-text" style="font-size:13px; color:var(--muted); margin-left:8px;">Pensando...</span></div>' : text}</div>
                         <button class="action-btn tts-btn" style="display: ${comSpinner ? 'none' : 'flex'}">
                             <span class="material-symbols-outlined">volume_up</span> Ouvir Resposta
                         </button>
@@ -796,11 +796,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    if (!esperandoResposta) break; // Para o loop se o usuário cancelar
-                    
-                    const chunk = decoder.decode(value, { stream: true });
+                    if (!esperandoResposta) break;
+
+                    let chunk = decoder.decode(value, { stream: true });
+
+                    // Lógica para detectar sinal de busca na web
+                    if (chunk.includes("[SEARCHING]")) {
+                        const spinnerText = document.getElementById('spinner-text');
+                        if (spinnerText) spinnerText.innerText = 'Pesquisando na web...';
+                        chunk = chunk.replace("[SEARCHING]", "");
+                    }
+
                     respostaCompleta += chunk;
-                    
+
                     // Formatação em tempo real
                     let textoProcessado = respostaCompleta;
                     if (textoProcessado.includes("<think>")) {

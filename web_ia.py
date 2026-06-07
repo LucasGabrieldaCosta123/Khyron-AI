@@ -2,11 +2,16 @@ from flask import Flask, render_template, request, jsonify, Response, stream_wit
 import os
 import ollama # type: ignore
 
-# Tentamos importar o Groq. Se não estiver instalado, o código não quebra.
+# Tentamos importar o Groq e a Busca
 try:
     from groq import Groq
 except ImportError:
     Groq = None
+
+try:
+    from duckduckgo_search import DDGS
+except ImportError:
+    DDGS = None
 
 app = Flask(__name__)
 
@@ -23,6 +28,10 @@ MODELO_LOCAL = "khyron" # Seu modelo local
 groq_client = Groq(api_key=GROQ_API_KEY) if (GROQ_API_KEY and Groq) else None
 ollama_client = ollama.Client(host=OLLAMA_HOST, timeout=60.0)
 
+def usar_nuvem():
+    """Verifica se deve usar a nuvem (Groq) ou o Ollama local."""
+    return GROQ_API_KEY is not None and groq_client is not None
+
 def carregar_conhecimento():
     """Lê o arquivo de conhecimento para atualizar a IA."""
     try:
@@ -32,9 +41,45 @@ def carregar_conhecimento():
         print(f"⚠️ Não foi possível carregar knowledge.txt: {e}")
         return ""
 
-def usar_nuvem():
-    """Verifica se deve usar a nuvem (Groq) ou o Ollama local."""
-    return GROQ_API_KEY is not None and groq_client is not None
+# --- FUNÇÕES DE BUSCA WEB ---
+def pesquisar_web(query):
+    """Faz uma busca no DuckDuckGo e retorna os resumos dos resultados."""
+    if not DDGS:
+        return "Erro: Biblioteca de busca não instalada."
+
+    try:
+        with DDGS() as ddgs:
+            results = [r for r in ddgs.text(query, max_results=5)]
+            if not results:
+                return "Nenhum resultado relevante encontrado na web."
+
+            contexto_web = "\n".join([f"Resultado {i+1}: {r['body']}" for i, r in enumerate(results)])
+            return contexto_web
+    except Exception as e:
+        print(f"❌ Erro na pesquisa web: {e}")
+        return f"Erro ao pesquisar na web: {str(e)}"
+
+def precisa_de_busca(pergunta):
+    """Analisa se a pergunta exige informações em tempo real ou externas."""
+    # Palavras-chave que geralmente indicam necessidade de busca
+    palavras_chave = ['quem é', 'o que é', 'notícias', 'hoje', 'ontem', 'clima', 'previsão', 'resultado', 'ganhou', 'preço de', 'atual', 'onde está']
+    if any(word in pergunta.lower() for word in palavras_chave):
+        return True
+
+    # Se estivermos usando a nuvem, podemos perguntar para a própria IA se ela precisa de busca (mais preciso)
+    if usar_nuvem():
+        try:
+            prompt_decisao = f"Analise a pergunta do usuário: '{pergunta}'. Ela exige informações em tempo real, notícias recentes ou fatos externos que você possa não ter? Responda APENAS 'SIM' ou 'NÃO'."
+            res = groq_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt_decisao}],
+                model=MODELO_NUVEM,
+                max_tokens=5
+            )
+            return "SIM" in res.choices[0].message.content.upper()
+        except:
+            return False
+
+    return False
 
 # --- Rotas do Site ---
 @app.route('/')
@@ -48,8 +93,7 @@ def favicon():
 @app.route('/gerar_titulo', methods=['POST'])
 def gerar_titulo():
     texto = request.json.get('texto', '')
-    conhecimento = carregar_conhecimento()
-    prompt = f"Informações Atualizadas: {conhecimento}\n\nTarefa: Resuma a frase em um título de 2 ou 3 palavras. NÃO use aspas, pontos ou emojis. Responda APENAS as palavras do título: '{texto}'"
+    prompt = f"Resuma a frase em um título de 2 ou 3 palavras. NÃO use aspas, pontos ou emojis. Responda APENAS as palavras do título: '{texto}'"
 
     try:
         if usar_nuvem():
@@ -79,9 +123,29 @@ def perguntar():
 
     def generate():
         try:
-            # Prepara as mensagens para a IA
+            # 1. Verifica se precisa de busca na web
+            contexto_extra = ""
+            precisou = False
+            if precisa_de_busca(pergunta):
+                # Realiza a pesquisa silenciosa
+                resultados_web = pesquisar_web(pergunta)
+                contexto_extra = f"\n\n--- RESULTADOS DA WEB ---\n{resultados_web}\n-------------------------"
+                precisou = True
+
+            # Sinaliza para o frontend que está pesquisando
+            if precisou:
+                yield "[SEARCHING]"
+
+            # 2. Prepara as mensagens para a IA
             conhecimento = carregar_conhecimento()
-            mensagens = [{'role': 'system', 'content': f"Você é a IA Khyron. Data e hora atual do usuário: {local_datetime}. Use as seguintes informações atualizadas para responder com precisão: {conhecimento}"}]
+            system_prompt = (
+                f"Você é a IA Khyron. Data e hora atual do usuário: {local_datetime}. "
+                f"Use as seguintes informações atualizadas para responder com precisão: {conhecimento}"
+            )
+            if contexto_extra:
+                system_prompt += f"\n\nIMPORTANTE: O usuário fez uma pergunta que exigiu busca na web. Use os resultados abaixo para complementar sua resposta:\n{contexto_extra}"
+
+            mensagens = [{'role': 'system', 'content': system_prompt}]
             mensagens += [{'role': m['role'], 'content': m['content']} for m in historico]
             mensagens.append({'role': 'user', 'content': pergunta})
 
