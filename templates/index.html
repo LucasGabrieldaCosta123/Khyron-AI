@@ -108,20 +108,16 @@
         margin: 0 auto;
         -webkit-overflow-scrolling: touch;
     }
-    /* Chrome, Safari e Opera */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
+/* Hide scrollbar for Chrome, Safari, Opera */
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
 
-/* Firefox */
-.no-scrollbar {
-  scrollbar-width: none; /* Oculta barra */
-}
-
-/* IE e Edge antigo */
-.no-scrollbar {
-  -ms-overflow-style: none;
-}
+/* Hide scrollbar for IE, Edge, Firefox */
+    .no-scrollbar {
+        -ms-overflow-style: none; /* IE and Edge */
+        scrollbar-width: none; /* Firefox */
+    }
 
     .message { max-width: 85%; line-height: 1.6; word-wrap: break-word; font-size: 16px; }
     .user { align-self: flex-end; background: var(--surface-alt); padding: 10px 20px; border-radius: 20px; border: 1px solid var(--border); }
@@ -316,7 +312,7 @@
             </div>
             <div style="font-size: 14px; opacity: 0.8;">Ativo</div>
         </div>
-
+        <div class="no-scrollbar">
         <div id="chat-container">
             <!-- Mensagem de boas vindas inicial -->
             <div class="message bot" id="welcome-msg">
@@ -326,6 +322,7 @@
                 </div>
             </div>
         </div>
+    </div>
 
         <div class="composer">
             <div class="input-box">
