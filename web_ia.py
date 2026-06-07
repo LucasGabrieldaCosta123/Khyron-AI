@@ -49,7 +49,8 @@ def pesquisar_web(query):
 
     try:
         with DDGS() as ddgs:
-            results = [r for r in ddgs.text(query, max_results=5)]
+            # Aumentamos para 10 resultados para ter mais precisão e contexto
+            results = [r for r in ddgs.text(query, max_results=10)]
             if not results:
                 return "Nenhum resultado relevante encontrado na web."
 
@@ -59,17 +60,30 @@ def pesquisar_web(query):
         print(f"❌ Erro na pesquisa web: {e}")
         return f"Erro ao pesquisar na web: {str(e)}"
 
+def otimizar_query(pergunta):
+    """Transforma a pergunta do usuário em uma query de busca eficiente."""
+    if usar_nuvem():
+        try:
+            prompt = f"Converta a pergunta do usuário em uma query de busca curta e eficiente para o DuckDuckGo (em português). Pergunta: '{pergunta}'. Responda APENAS a query, sem aspas."
+            res = groq_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model=MODELO_NUVEM,
+                max_tokens=20
+            )
+            return res.choices[0].message.content.strip()
+        except:
+            pass
+    return pergunta
+
 def precisa_de_busca(pergunta):
     """Analisa se a pergunta exige informações em tempo real ou externas."""
-    # Palavras-chave que geralmente indicam necessidade de busca
-    palavras_chave = ['quem é', 'o que é', 'notícias', 'hoje', 'ontem', 'clima', 'previsão', 'resultado', 'ganhou', 'preço de', 'atual', 'onde está']
+    palavras_chave = ['quem é', 'o que é', 'notícias', 'hoje', 'ontem', 'clima', 'previsão', 'resultado', 'ganhou', 'preço de', 'atual', 'onde está', 'como está']
     if any(word in pergunta.lower() for word in palavras_chave):
         return True
 
-    # Se estivermos usando a nuvem, podemos perguntar para a própria IA se ela precisa de busca (mais preciso)
     if usar_nuvem():
         try:
-            prompt_decisao = f"Analise a pergunta do usuário: '{pergunta}'. Ela exige informações em tempo real, notícias recentes ou fatos externos que você possa não ter? Responda APENAS 'SIM' ou 'NÃO'."
+            prompt_decisao = f"Analise a pergunta: '{pergunta}'. Ela exige fatos externos ou notícias recentes? Responda APENAS 'SIM' ou 'NÃO'."
             res = groq_client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt_decisao}],
                 model=MODELO_NUVEM,
@@ -127,9 +141,10 @@ def perguntar():
             contexto_extra = ""
             precisou = False
             if precisa_de_busca(pergunta):
-                # Realiza a pesquisa silenciosa
-                resultados_web = pesquisar_web(pergunta)
-                contexto_extra = f"\n\n--- RESULTADOS DA WEB ---\n{resultados_web}\n-------------------------"
+                # Otimiza a query para obter melhores resultados
+                query_otimizada = otimizar_query(pergunta)
+                resultados_web = pesquisar_web(query_otimizada)
+                contexto_extra = f"\n\n--- RESULTADOS DA WEB (Baseados na busca: {query_otimizada}) ---\n{resultados_web}\n-------------------------"
                 precisou = True
 
             # Sinaliza para o frontend que está pesquisando
@@ -139,11 +154,17 @@ def perguntar():
             # 2. Prepara as mensagens para a IA
             conhecimento = carregar_conhecimento()
             system_prompt = (
-                f"Você é a IA Khyron. Data e hora atual do usuário: {local_datetime}. "
+                f"Você é a IA Khyron, um assistente ultra-preciso. Data e hora atual do usuário: {local_datetime}. "
                 f"Use as seguintes informações atualizadas para responder com precisão: {conhecimento}"
             )
             if contexto_extra:
-                system_prompt += f"\n\nIMPORTANTE: O usuário fez uma pergunta que exigiu busca na web. Use os resultados abaixo para complementar sua resposta:\n{contexto_extra}"
+                system_prompt += (
+                    f"\n\nIMPORTANTE: O usuário fez uma pergunta que exigiu busca na web. "
+                    f"Abaixo estão os fatos reais extraídos da internet. "
+                    f"Você DEVE usar esses resultados para construir sua resposta. "
+                    f"NÃO diga que não tem informações se houver dados nos resultados da web. "
+                    f"Seja detalhado, cite os fatos e evite respostas genéricas.\n{contexto_extra}"
+                )
 
             mensagens = [{'role': 'system', 'content': system_prompt}]
             mensagens += [{'role': m['role'], 'content': m['content']} for m in historico]
